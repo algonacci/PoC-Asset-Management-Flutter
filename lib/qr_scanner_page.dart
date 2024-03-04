@@ -13,6 +13,7 @@ class QRScannerPage extends StatefulWidget {
 class _QRScannerPageState extends State<QRScannerPage> {
   final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
   QRViewController? controller;
+  bool isProcessing = false; // Flag to indicate if we're processing a scan
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +37,11 @@ class _QRScannerPageState extends State<QRScannerPage> {
   void _onQRViewCreated(QRViewController controller) {
     this.controller = controller;
     controller.scannedDataStream.listen((scanData) {
-      _fetchAssetData(scanData.code!);
+      if (!isProcessing) {
+        // Check if we're not already processing a scan
+        isProcessing = true; // Set processing to true
+        _fetchAssetData(scanData.code!);
+      }
     });
   }
 
@@ -46,7 +51,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
         Uri.parse(url),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer SECRET',
+          'Authorization': 'Bearer SECRET', // Replace SECRET with actual token
         },
       );
       if (response.statusCode == 200) {
@@ -58,15 +63,17 @@ class _QRScannerPageState extends State<QRScannerPage> {
             builder: (context) => AssetInfoPage(assetData: assetData),
           ),
         );
-        // Dispose of the QR scanner controller after navigating away
-        controller?.dispose();
       } else {
         print(response.statusCode);
         throw Exception('Failed to load asset data');
       }
     } catch (e) {
       print('Error: $e');
-      // Handle error appropriately (e.g., show an error dialog)
+      // Handle error appropriately
+    } finally {
+      // Resume scanning after pushing the AssetInfoPage or if an error occurs
+      controller?.resumeCamera();
+      isProcessing = false; // Reset processing to false
     }
   }
 
